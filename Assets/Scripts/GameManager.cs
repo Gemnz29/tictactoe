@@ -14,6 +14,8 @@ public class GameManager : NetworkBehaviour {
         public int y;
         public PlayerType playerType;
     }
+    public event EventHandler OnGameStarted;
+    public event EventHandler OnCurrentPlayablePlayerTypeChanged;
 
 
     public enum PlayerType {
@@ -45,8 +47,21 @@ public class GameManager : NetworkBehaviour {
         }
 
         if (IsServer) {
-            currentPlayablePlayerType = PlayerType.Cross;
+            NetworkManager.Singleton.OnClientConnectedCallback += NetworkManager_OnClientConnectedCallback;
         }
+    }
+
+    private void NetworkManager_OnClientConnectedCallback(ulong obj) {
+        if (NetworkManager.Singleton.ConnectedClientsList.Count == 2) {
+            // Start Game
+            currentPlayablePlayerType = PlayerType.Cross;
+            TriggerOnGameStartedRpc();
+        }
+    }
+
+    [Rpc(SendTo.ClientsAndHost)]
+    private void TriggerOnGameStartedRpc() {
+        OnGameStarted?.Invoke(this, EventArgs.Empty);
     }
 
     [Rpc(SendTo.Server)]
@@ -71,10 +86,20 @@ public class GameManager : NetworkBehaviour {
                 currentPlayablePlayerType = PlayerType.Cross;
                 break;
         }
+        TriggerOnCurrentPlayablePlayerTypeChangedRpc();
+    }
+
+    [Rpc(SendTo.ClientsAndHost)]
+    private void TriggerOnCurrentPlayablePlayerTypeChangedRpc() {
+        OnCurrentPlayablePlayerTypeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     public PlayerType GetLocalPlayerType() {
         return localPlayerType;
+    }
+
+    public PlayerType GetCurrentPlayablePlayerType() {
+        return currentPlayablePlayerType;
     }
 
 }
